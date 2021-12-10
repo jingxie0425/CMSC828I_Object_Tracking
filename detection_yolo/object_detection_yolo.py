@@ -1,3 +1,5 @@
+# modified version
+
 # This code is written at BigVision LLC. It is based on the OpenCV project. It is subject to the license terms in the LICENSE file found in this distribution and at http://opencv.org/license.html
 
 # Usage example:  python3 object_detection_yolo.py --video=run.mp4
@@ -18,7 +20,7 @@ inpHeight = 416      #Height of network's input image
 parser = argparse.ArgumentParser(description='Object Detection using YOLO in OPENCV')
 parser.add_argument('--image', help='Path to image file.')
 parser.add_argument('--video', help='Path to video file.')
-args = parser.parse_args()
+args = parser.parse_args(['--video', 'run.mp4'])
         
 # Load names of classes
 classesFile = "coco.names"
@@ -52,6 +54,8 @@ def drawPred(classId, conf, left, top, right, bottom):
     if classes:
         assert(classId < len(classes))
         label = '%s:%s' % (classes[classId], label)
+
+    print(label, left, top, right, bottom)
 
     #Display the label at the top of the bounding box
     labelSize, baseLine = cv.getTextSize(label, cv.FONT_HERSHEY_SIMPLEX, 0.5, 1)
@@ -88,6 +92,8 @@ def postprocess(frame, outs):
     # Perform non maximum suppression to eliminate redundant overlapping boxes with
     # lower confidences.
     indices = cv.dnn.NMSBoxes(boxes, confidences, confThreshold, nmsThreshold)
+
+    list_tmp = []
     for i in indices:
         i = i[0]
         box = boxes[i]
@@ -95,11 +101,20 @@ def postprocess(frame, outs):
         top = box[1]
         width = box[2]
         height = box[3]
-        drawPred(classIds[i], confidences[i], left, top, left + width, top + height)
+        # drawPred(classIds[i], confidences[i], left, top, left + width, top + height)
+        cat = '%s' % (classes[classIds[i]])
+        list_tmp.append({'attributes': {'crowd': False, 'occluded': False, 'truncated': False},
+            'box2d': {'x1': left,
+            'x2': left + width,
+            'y1': top,
+            'y2': top + height},
+            'category': cat,
+            'id': ''})
+    return list_tmp
 
 # Process inputs
-winName = 'Deep learning object detection in OpenCV'
-cv.namedWindow(winName, cv.WINDOW_NORMAL)
+# winName = 'Deep learning object detection in OpenCV'
+# cv.namedWindow(winName, cv.WINDOW_NORMAL)
 
 outputFile = "yolo_out_py.avi"
 if (args.image):
@@ -124,7 +139,16 @@ else:
 if (not args.image):
     vid_writer = cv.VideoWriter(outputFile, cv.VideoWriter_fourcc('M','J','P','G'), 30, (round(cap.get(cv.CAP_PROP_FRAME_WIDTH)),round(cap.get(cv.CAP_PROP_FRAME_HEIGHT))))
 
-while cv.waitKey(1) < 0:
+
+# load frame by frame
+
+frame_id = 0
+yolo_out = {}
+cap = cv.VideoCapture(args.video)
+
+while True:
+    if frame_id > 10:
+        break
     
     # get frame from the video
     hasFrame, frame = cap.read()
@@ -147,19 +171,27 @@ while cv.waitKey(1) < 0:
     # Runs the forward pass to get output of the output layers
     outs = net.forward(getOutputsNames(net))
 
+    # print(frame_id)
     # Remove the bounding boxes with low confidence
-    postprocess(frame, outs)
 
-    # Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the timings for each of the layers(in layersTimes)
-    t, _ = net.getPerfProfile()
-    label = 'Inference time: %.2f ms' % (t * 1000.0 / cv.getTickFrequency())
-    cv.putText(frame, label, (0, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255))
+    # yolo_out['frame_' + str(frame_id)] = postprocess(frame, outs)
 
-    # Write the frame with the detection boxes
-    if (args.image):
-        cv.imwrite(outputFile, frame.astype(np.uint8))
-    else:
-        vid_writer.write(frame.astype(np.uint8))
+    frame_id += 1
 
-    cv.imshow(winName, frame)
+# load multiple frames one time
 
+# 10 frames
+
+# frame_id = 0
+# yolo_out_m = {}
+
+# Images=[]
+# cap = cv.VideoCapture(args.video)
+# while (len(Images)) < 10:
+#     hasFrame, frame = cap.read()
+#     Images.append(frame)
+# ImagesArr = np.array(Images)
+# cap.release()
+# blob = cv.dnn.blobFromImages(ImagesArr, 1/255, (inpWidth, inpHeight), [0,0,0], 1, crop=False)
+# net.setInput(blob)
+# outs_frames = net.forward(getOutputsNames(net))
